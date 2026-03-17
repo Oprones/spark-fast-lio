@@ -1,0 +1,77 @@
+---
+launch:
+  - arg: {name: start_rviz, default: 'true', description: automatically start rviz}
+
+  - arg: {name: lidar_topic, default: '/unilidar/cloud', description: 'LiDAR PointCloud2 topic'}
+  - arg: {name: imu_topic, default: '/unilidar/imu', description: 'IMU topic'}
+
+  # Frames
+  - arg: {name: lidar_frame, default: 'unilidar_lidar', description: 'LiDAR frame id'}
+  - arg: {name: imu_frame, default: 'unilidar_imu', description: 'IMU frame id'}
+  - arg: {name: map_frame, default: 'odom', description: 'Map frame id'}
+  - arg: {name: base_frame, default: '', description: 'Robot base frame id'}
+  - arg: {name: visualization_frame, default: 'lidar', description: 'Frame for visualization outputs: lidar, imu, or base'}
+  - arg: {name: publish_base_to_lidar_tf, default: 'false', description: 'Publish static transform from base frame to lidar frame'}
+  - arg: {name: base_to_lidar_x, default: '0.0', description: 'Static transform x'}
+  - arg: {name: base_to_lidar_y, default: '0.0', description: 'Static transform y'}
+  - arg: {name: base_to_lidar_z, default: '0.0', description: 'Static transform z'}
+  - arg: {name: base_to_lidar_roll, default: '0.0', description: 'Static transform roll'}
+  - arg: {name: base_to_lidar_pitch, default: '0.0', description: 'Static transform pitch'}
+  - arg: {name: base_to_lidar_yaw, default: '0.0', description: 'Static transform yaw'}
+
+  - arg: {name: rviz_path, default: $(find-pkg-share spark_fast_lio)/rviz/velodyne_mit.rviz, description: rviz file to load}
+  - arg: {name: config_path, default: $(find-pkg-share spark_fast_lio)/config/unitree_l2.yaml, description: Unitree L2 configuration}
+
+  - node:
+      pkg: spark_fast_lio
+      exec: spark_lio_mapping
+      name: lio_mapping
+      output: screen
+      on_exit: shutdown
+
+      remap:
+        - { from: 'lidar', to: '$(var lidar_topic)' }
+        - { from: 'imu', to: '$(var imu_topic)' }
+
+      param:
+        - name: "common.lidar_frame"
+          value: "$(var lidar_frame)"
+        - name: "common.imu_frame"
+          value: "$(var imu_frame)"
+        - name: "common.map_frame"
+          value: "$(var map_frame)"
+        - name: "common.base_frame"
+          value: "$(var base_frame)"
+        - name: "common.visualization_frame"
+          value: "$(var visualization_frame)"
+
+        - name: "gravity_alignment.enable_gravity_alignment"
+          value: false
+
+        - from: $(var config_path)
+
+  - node:
+      if: $(var start_rviz)
+      pkg: rviz2
+      exec: rviz2
+      name: "rviz"
+      launch-prefix: "nice"
+      output: "screen"
+      args: >
+        -d $(var rviz_path)
+
+  - node:
+      if: $(var publish_base_to_lidar_tf)
+      pkg: tf2_ros
+      exec: static_transform_publisher
+      name: base_to_lidar_tf
+      output: screen
+      args: >-
+        --x $(var base_to_lidar_x)
+        --y $(var base_to_lidar_y)
+        --z $(var base_to_lidar_z)
+        --roll $(var base_to_lidar_roll)
+        --pitch $(var base_to_lidar_pitch)
+        --yaw $(var base_to_lidar_yaw)
+        --frame-id $(var base_frame)
+        --child-frame-id $(var lidar_frame)
